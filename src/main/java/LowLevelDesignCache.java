@@ -94,7 +94,7 @@ class LruEvictionStrategy<T> implements EvictionStrategy<T> {
             keyLookUp.remove(lastKey);
         } else {
             orderedEntries.removeAll(allRetiredEntries);
-            orderedEntries.forEach((entry) -> keyLookUp.remove(entry.key));
+            allRetiredEntries.forEach((entry) -> keyLookUp.remove(entry.key));
         }
     }
 
