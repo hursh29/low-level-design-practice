@@ -162,24 +162,24 @@ class FifoEvictionStrategy<T> implements EvictionStrategy<T> {
 }
 
 class Cache<T> {
-    private final EvictionStrategy strategy;
+
+    private final EvictionStrategy<T> strategy;
 
     public Cache(final EvictionPolicy userEvictionPolicy,
-                 final Long userExipration,
+                 final Long expirationWindow,
                  final Integer capacity) {
-
-        final var policyToStrategy =
-            Stream.of(
-                new LruEvictionStrategy<>(capacity, userExipration),
-                new FifoEvictionStrategy<>(capacity, userExipration))
-            .collect(Collectors.toUnmodifiableMap(EvictionStrategy::policyType, t -> t));
-
-        this.strategy = Optional.ofNullable(policyToStrategy.get(userEvictionPolicy))
-            .orElseThrow(() -> new IllegalStateException("Strategy not found"));
+        if (userEvictionPolicy ==  EvictionPolicy.LRU) {
+            strategy = new LruEvictionStrategy<>(capacity, expirationWindow);
+        } else if (userEvictionPolicy == EvictionPolicy.FIFO) {
+            strategy = new FifoEvictionStrategy<>(capacity, expirationWindow);
+        } else {
+            strategy = null;
+            System.err.println("not able to find relevant strategy");
+        }
     }
 
     T get(final String key) {
-        return (T) strategy.get(key);
+        return strategy.get(key);
     }
 
     void put(final String key, final T incomingValue) {
