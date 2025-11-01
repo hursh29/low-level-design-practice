@@ -1,9 +1,8 @@
-import java.util.HashMap;
 import java.util.LinkedList;
-import java.util.List;
-import java.util.ListIterator;
 import java.util.Map;
 import java.util.Optional;
+import java.util.TreeMap;
+import java.util.TreeSet;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -11,19 +10,30 @@ enum EvictionPolicy {
     FIFO, LRU, LFU
 }
 
-class CacheEntry<T> {
+class CacheEntry<T> implements Comparable<CacheEntry<T>> {
     String key;
     T value;
-    private final Long expirationTime;
+    private final Integer operationOrder;
+    final Long expirationTime;
+    private final EvictionPolicy policy;
 
-    public CacheEntry(final String inputKey, final T inputValue, final Long expirationTime) {
+    public CacheEntry(final String inputKey, final T inputValue,
+                      final Integer operationOrder,
+                      final Long expirationTime) {
         this.key = inputKey;
         this.value = inputValue;
-        this.expirationTime = System.currentTimeMillis() + expirationTime;
+        this.operationOrder = operationOrder;
+        this.expirationTime = expirationTime;
+        this.policy = EvictionPolicy.LRU;
     }
 
     public Boolean isExpired() {
         return System.currentTimeMillis() > this.expirationTime;
+    }
+
+    @Override
+    public int compareTo(CacheEntry<T> o) {
+        return Integer.compare(o.operationOrder, this.operationOrder);
     }
 }
 
@@ -37,57 +47,72 @@ interface EvictionStrategy<T> {
 }
 
 class LruEvictionStrategy<T> implements EvictionStrategy<T> {
-    private final LinkedList<CacheEntry<T>> orderedEntries;
-    private final Map<String, ListIterator<CacheEntry<T>>> keyToLocation;
+    private final TreeSet<CacheEntry<T>> orderedEntries;
+    private final Map<String, CacheEntry<T>> keyLookUp;
     private final Long expiration;
     private final Integer capacity;
+    private int operationOrder = 0;
 
     LruEvictionStrategy(final Integer capacity, final Long cacheEvictDuration) {
         this.capacity = capacity;
-        this.orderedEntries = new LinkedList<>();
-        this.keyToLocation = new HashMap<>();
+        this.orderedEntries = new TreeSet<>();
+        this.keyLookUp = new TreeMap<>();
         this.expiration = cacheEvictDuration;
     }
 
     private void resetEntryToBegin(final String key) {
-        final var currentLocation = keyToLocation.get(key);
-        final var value = currentLocation.next().value;
-
-        currentLocation.remove();
-        orderedEntries.addFirst(new CacheEntry<T>(key, value, this.expiration));
-
-        keyToLocation.put(key, orderedEntries.listIterator(0));
+        final var olderEntry = keyLookUp.get(key);
+        final var newEntry = new CacheEntry<>(
+            key, olderEntry.value, operationOrder, olderEntry.expirationTime
+        );
+        orderedEntries.remove(olderEntry);
+        orderedEntries.add(newEntry);
+        keyLookUp.replace(key, newEntry);
     }
 
     private void resetEntryToBegin(final String key, final T newValue) {
-        final var currentLocation = keyToLocation.get(key);
+        final var olderEntry = keyLookUp.get(key);
+        final var newEntry = new CacheEntry<>(
+            key, newValue, operationOrder, System.currentTimeMillis() + this.expiration
+        );
 
-        currentLocation.remove();
-        orderedEntries.addFirst(new CacheEntry<T>(key, newValue, this.expiration));
-
-        keyToLocation.put(key, orderedEntries.listIterator(0));
+        orderedEntries.remove(olderEntry);
+        orderedEntries.add(newEntry);
+        keyLookUp.replace(key, newEntry);
     }
 
     private void evictLast() {
-        final var lastKey = orderedEntries.getLast().key;
+        assert !orderedEntries.isEmpty();
+        final var lastEntryKey = orderedEntries.pollLast().key;
 
-        orderedEntries.removeLast();
-        keyToLocation.remove(lastKey);
+        keyLookUp.remove(lastEntryKey);
     }
 
     public T get(final String key) {
-        if (!keyToLocation.containsKey(key)) {
+        if (!keyLookUp.containsKey(key)) {
+            return null;
+        }
+        operationOrder += 1;
+
+        // check if its expired
+        final var savedEntry = keyLookUp.get(key);
+        if (savedEntry.isExpired()) {
+            orderedEntries.remove(savedEntry);
             return null;
         }
 
         resetEntryToBegin(key);
-        return keyToLocation.get(key).next().value;
+        return keyLookUp.get(key).value;
     }
 
     public void put(final String key, final T newValue) {
-        if (!keyToLocation.containsKey(key)) {
-            orderedEntries.addFirst(new CacheEntry<T>(key, newValue, this.expiration));
-            keyToLocation.put(key, orderedEntries.listIterator(0));
+        operationOrder += 1;
+        if (!keyLookUp.containsKey(key)) {
+            final var newCacheEntry = new CacheEntry<T>(
+                key, newValue, operationOrder, System.currentTimeMillis() + this.expiration);
+
+            orderedEntries.add(newCacheEntry);
+            keyLookUp.put(key, newCacheEntry);
             if (orderedEntries.size() > this.capacity) {
                 evictLast();
             }
