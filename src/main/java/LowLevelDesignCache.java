@@ -83,9 +83,19 @@ class LruEvictionStrategy<T> implements EvictionStrategy<T> {
 
     private void evictLast() {
         assert !orderedEntries.isEmpty();
-        final var lastEntryKey = orderedEntries.pollLast().key;
 
-        keyLookUp.remove(lastEntryKey);
+        // see if we can clear all retired items
+        final var allRetiredEntries = orderedEntries.stream()
+            .filter(CacheEntry::isExpired)
+            .collect(Collectors.toSet());
+
+        if (allRetiredEntries.isEmpty()) {
+            final var lastKey = orderedEntries.pollLast().key;
+            keyLookUp.remove(lastKey);
+        } else {
+            orderedEntries.removeAll(allRetiredEntries);
+            orderedEntries.forEach((entry) -> keyLookUp.remove(entry.key));
+        }
     }
 
     public T get(final String key) {
