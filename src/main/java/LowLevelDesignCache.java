@@ -300,14 +300,8 @@ class FifoEvictionStrategy<T> implements EvictionStrategy<T> {
     }
 
     private void evictExpiredEntries() {
-        while (!orderedList.isEmpty()) {
-            final var probablyExpiredEntry = orderedList.pollLast();
-
-            if (probablyExpiredEntry.isExpired()) {
-                keyLookUp.remove(probablyExpiredEntry.key);
-            } else {
-                break;
-            }
+        while (!orderedList.isEmpty() && orderedList.last().isExpired()) {
+            orderedList.pollLast();
         }
     }
 
