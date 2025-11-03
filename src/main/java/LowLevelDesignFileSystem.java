@@ -85,6 +85,7 @@ class FileSystemClient {
         this.root = new Directory("", FileSystemEntityType.DIRECTORY);
     }
 
+    // key is always the target entity and value is its parent
     private AbstractMap.SimpleEntry<FileSystemEntity, FileSystemEntity> navigateToPath(final String path) {
         final List<String> splitEntities = Arrays.stream(path.split("/"))
             .filter(entity -> !entity.isEmpty())
@@ -113,20 +114,25 @@ class FileSystemClient {
             currentEntity);
     }
 
-    public boolean createFile(final String name, final String path, final long size) {
+    public void createFile(final String name, final String path, final long size) {
         final var navigatedLocation = (Directory) navigateToPath(path).getKey();
-        final var newFile = new File(name, FileSystemEntityType.FILE, size);
+        if (navigatedLocation.getEntity(name).isPresent()) {
+            throw new IllegalStateException("File already exists");
+        }
 
+        final var newFile = new File(name, FileSystemEntityType.FILE, size);
         navigatedLocation.addFile(newFile);
-        return true;
     }
 
-    public boolean createFolder(final String name, final String path) {
+    public void createFolder(final String name, final String path) {
         final var navigatedLocation = (Directory) navigateToPath(path).getKey();
+        if (navigatedLocation.getEntity(name).isPresent()) {
+            throw new IllegalStateException("Dir already exists");
+        }
+
         final var newDirectory = new Directory(name, FileSystemEntityType.DIRECTORY);
 
         navigatedLocation.addDirectory(newDirectory);
-        return true;
     }
 
     public void listContent(final String path) {
@@ -137,18 +143,12 @@ class FileSystemClient {
     }
 
     private long aggregateSize(final FileSystemEntity entity) {
-        AtomicLong initialSize = new AtomicLong(0);
-
-        if (entity.type.equals(FileSystemEntityType.DIRECTORY)) {
-            ((Directory) entity).getAllContent()
-                .forEach((childEntity) -> {
-                    initialSize.addAndGet(aggregateSize(childEntity));
-                });
-        } else {
-            initialSize.set(((File) entity).size);
+        if (entity instanceof File) {
+            return ((File) entity).size;
         }
-
-        return initialSize.get();
+        return ((Directory) entity).getAllContent().stream()
+            .mapToLong(this::aggregateSize)
+            .sum();
     }
 
     public long getSize(final String path) {
@@ -172,7 +172,7 @@ public class LowLevelDesignFileSystem {
         final var client = new FileSystemClient();
         client.createFolder("grandparent", "/");
         client.createFile("theOffice.mp4", "/", 200L);
-        client.createFile("friends.txt", "/", 128L);
+        client.createFile("friends.txt", "/", 1278L);
 
         client.createFolder("parent", "/grandparent");
         client.createFile("angelinaJolie.mp4", "/grandparent", 200L);
