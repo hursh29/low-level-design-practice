@@ -213,7 +213,7 @@ class LruEvictionStrategy<T> implements EvictionStrategy<T> {
         orderedEntries.remove(olderEntry);
         orderedEntries.add(newEntry);
         keyLookup.replace(key, newEntry);
-    }
+    } // try considering making point in time updates instead of adding and removing
 
     private void resetEntryToBegin(final String key, final T newValue) {
         final var olderEntry = keyLookup.get(key);
