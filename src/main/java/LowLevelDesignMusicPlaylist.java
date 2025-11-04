@@ -1,4 +1,5 @@
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -36,12 +37,19 @@ class Song {
     public void playSong() {
         System.out.println("Playing song = " + this.getName() + " by artist " + this.getArtist());
     }
+
+    @Override
+    public String toString() {
+        return "Song = " + this.getName() + " by artist " + this.getArtist();
+    }
 }
 
 class Playlist {
     private final String id;
     private final String name;
     private final List<Song> songs;
+    private final List<Song> shuffledSongs;
+    private Boolean isShuffled;
     private Integer currentTracker;
     private boolean repeatEnabled;
 
@@ -49,7 +57,9 @@ class Playlist {
         this.id = id;
         this.name = name;
         this.songs = new ArrayList<>();
+        this.shuffledSongs = new ArrayList<>();
         this.currentTracker = 0;
+        this.isShuffled = false;
         this.repeatEnabled = false;
     }
 
@@ -59,20 +69,40 @@ class Playlist {
 
     public void addSongToPlaylist(final Song song) {
         songs.add(song);
+        shuffledSongs.add(song);
     }
 
     public void removeSongFromPlaylist(final String songId) {
         songs.removeIf(song -> song.getId().equals(songId));
+        shuffledSongs.removeIf(song -> song.getId().equals(songId));
     }
 
-    public Song getNextSong() {
-        if (this.songs.isEmpty()) {
-            throw new IllegalStateException("Cannt play there are no songs as of now");
+    public void shuffleSongs() {
+        if (isShuffled) {
+            return;
         }
+
+        Collections.shuffle(shuffledSongs);
+        this.isShuffled = true;
+        resetCurrentTracker();
+    }
+
+    public void unShuffleSongs() {
+        this.isShuffled = false;
+        resetCurrentTracker();
+    }
+
+    public Song moveToNext() {
+        if (this.songs.isEmpty()) {
+            throw new IllegalStateException("Cannot play there are no songs as of now");
+        }
+        final var activeList = isShuffled ? shuffledSongs : songs;
+        System.out.println("Currently playing " + activeList.get(this.currentTracker));
+
         final var nextSongId = repeatEnabled ? (currentTracker + 1) % songs.size() : Integer.min(
             songs.size() - 1, currentTracker + 1);
         this.currentTracker = nextSongId;
-        return songs.get(nextSongId);
+        return activeList.get(nextSongId);
     }
 
     public void toggleRepeatMode() {
@@ -116,9 +146,9 @@ class MusicPlayer {
 
     public Song getNextSong(final String playlistId) {
         final var nextSong = getPlaylist(playlistId)
-            .map(Playlist::getNextSong);
+            .map(Playlist::moveToNext);
 
-        nextSong.ifPresent(Song::playSong);
+//        nextSong.ifPresent(Song::playSong);
 
         return nextSong.orElse(null);
     }
@@ -128,6 +158,15 @@ class MusicPlayer {
             .ifPresent(Playlist::toggleRepeatMode);
     }
 
+    public void shufflePlaylist(final String playlistId) {
+        getPlaylist(playlistId)
+            .ifPresent(Playlist::shuffleSongs);
+    }
+
+    public void unShufflePlaylist(final String playlistId) {
+        getPlaylist(playlistId)
+            .ifPresent(Playlist::unShuffleSongs);
+    }
 }
 
 public class LowLevelDesignMusicPlaylist {
@@ -145,27 +184,28 @@ public class LowLevelDesignMusicPlaylist {
         musicPlayer.addSongToPlaylist("1", song1);
         musicPlayer.addSongToPlaylist("1", song2);
         musicPlayer.addSongToPlaylist("1", song3);
-
+//
+////        musicPlayer.repeatPlaylist("1");
+//        musicPlayer.getNextSong("1");
+//        musicPlayer.getNextSong("1");
+//        musicPlayer.getNextSong("1");
+//        musicPlayer.getNextSong("1");
+//        musicPlayer.getNextSong("1");
+//        musicPlayer.getNextSong("1");
+//
+//        System.out.println("---------\n");
 //        musicPlayer.repeatPlaylist("1");
-        musicPlayer.getNextSong("1");
-        musicPlayer.getNextSong("1");
-        musicPlayer.getNextSong("1");
-        musicPlayer.getNextSong("1");
-        musicPlayer.getNextSong("1");
-        musicPlayer.getNextSong("1");
-
-        System.out.println("---------\n");
-        musicPlayer.repeatPlaylist("1");
-        musicPlayer.removeSongFromPlaylist("1", "2");
-        musicPlayer.getNextSong("1");
-        musicPlayer.getNextSong("1");
-        musicPlayer.getNextSong("1");
-        musicPlayer.getNextSong("1");
-
-
-        System.out.println("---------\n");
+//        musicPlayer.removeSongFromPlaylist("1", "2");
+//        musicPlayer.getNextSong("1");
+//        musicPlayer.getNextSong("1");
+//        musicPlayer.getNextSong("1");
+//        musicPlayer.getNextSong("1");
+//
+//
+//        System.out.println("---------\n");
 
         musicPlayer.addSongToPlaylist("1", song5);
+        musicPlayer.addSongToPlaylist("1", song4);
         musicPlayer.getNextSong("1");
         musicPlayer.getNextSong("1");
         musicPlayer.getNextSong("1");
@@ -174,5 +214,24 @@ public class LowLevelDesignMusicPlaylist {
         musicPlayer.getNextSong("1");
 
         System.out.println("---------\n");
+
+        musicPlayer.shufflePlaylist("1");
+
+        musicPlayer.getNextSong("1");
+        musicPlayer.getNextSong("1");
+        musicPlayer.getNextSong("1");
+        musicPlayer.getNextSong("1");
+        musicPlayer.getNextSong("1");
+
+
+        System.out.println("---------\n");
+
+        musicPlayer.unShufflePlaylist("1");
+        musicPlayer.getNextSong("1");
+        musicPlayer.getNextSong("1");
+        musicPlayer.getNextSong("1");
+        musicPlayer.getNextSong("1");
+        musicPlayer.getNextSong("1");
+
     }
 }
