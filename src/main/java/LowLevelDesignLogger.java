@@ -185,6 +185,10 @@ class Logger {
         final var logEvent = new LogEvent(msg, LogLevel.DEBUG, ZonedDateTime.now());
         appenders.forEach(appender -> appender.append(logEvent));
     }
+
+    public void close() {
+        appenders.forEach(Appender::close);
+    }
 }
 
 public class LowLevelDesignLogger {
