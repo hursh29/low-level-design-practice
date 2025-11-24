@@ -1,4 +1,3 @@
-
 // Message
 // Topic (Queues)
 // Publisher
@@ -16,10 +15,10 @@ import java.util.concurrent.atomic.AtomicLong;
 class Message {
     @Override
     public String toString() {
-        return "Message{" +
+        return "Message = " +
             "key='" + key + '\'' +
             ", value='" + value + '\'' +
-            "}  ";
+            "  ";
     }
 
     private final String key;
@@ -67,7 +66,7 @@ interface PubSubUser {
 }
 
 class Publisher implements PubSubUser {
-    private final AtomicLong ID_GENERATOR = new AtomicLong(0L);
+    private final static AtomicLong ID_GENERATOR = new AtomicLong(0L);
     private final String name;
     private final Long id;
 
@@ -123,7 +122,7 @@ class Subscriber implements PubSubUser {
 }
 
 class Topic {
-    private final AtomicLong ID_GENERATOR = new AtomicLong(0L);
+    private static final AtomicLong ID_GENERATOR = new AtomicLong(0L);
     private final List<Message> messages;
 
     public Long getId() {
